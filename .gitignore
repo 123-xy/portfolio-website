@@ -1,0 +1,22 @@
+# Gradle files
+.gradle/
+build/
+*.gradle.kts.highlighter
+local.properties
+
+# Android specific
+*.apk
+*.ap_
+*.aab
+*.dex
+
+# Generated
+app/build/
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# macOS
+.DS_Store
