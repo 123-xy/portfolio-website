@@ -21,7 +21,7 @@ export function SmartImage({
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-gradient-to-br from-mocha via-coffee to-espresso",
+          "flex aspect-[4/3] min-h-32 items-center justify-center bg-gradient-to-br from-mocha via-coffee to-espresso",
           className
         )}
         aria-label={alt}
