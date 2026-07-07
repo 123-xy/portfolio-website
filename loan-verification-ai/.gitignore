@@ -1,0 +1,42 @@
+# --- Runtime / local object storage (MinIO data) ---
+storage/*
+!storage/README.md
+!storage/.gitkeep
+
+# --- Secrets / environment ---
+.env
+.env.*
+!.env.example
+
+# --- Python (backend, ai-services) ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / Next.js (frontend) ---
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# --- AI model weights (large, fetched at build/runtime) ---
+*.onnx
+*.pt
+*.bin
+models/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
