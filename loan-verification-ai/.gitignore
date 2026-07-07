@@ -40,3 +40,6 @@ models/
 Thumbs.db
 .idea/
 .vscode/
+
+# Next.js generated type shim (regenerated on build)
+next-env.d.ts
