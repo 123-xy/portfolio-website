@@ -1,0 +1,31 @@
+import uuid
+from contextvars import ContextVar
+
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import Response
+
+_REQUEST_ID_HEADER = "X-Request-ID"
+_request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
+
+
+def get_request_id() -> str | None:
+    """Current request's correlation id, if inside a request scope."""
+    return _request_id_ctx.get()
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Assigns each request a correlation id (honoring an inbound one) and
+    echoes it back on the response. The id is stored in a ContextVar so logs
+    and downstream code — including Celery task headers — can propagate it."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request_id = request.headers.get(_REQUEST_ID_HEADER) or str(uuid.uuid4())
+        token = _request_id_ctx.set(request_id)
+        request.state.request_id = request_id
+        try:
+            response = await call_next(request)
+        finally:
+            _request_id_ctx.reset(token)
+        response.headers[_REQUEST_ID_HEADER] = request_id
+        return response
