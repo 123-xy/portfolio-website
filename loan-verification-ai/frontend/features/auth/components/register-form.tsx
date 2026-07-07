@@ -6,11 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { registerSchema, type RegisterInput } from "@/features/auth/domain/schemas";
+import { register as registerAccount } from "@/features/auth/api/auth-api";
+import { ApiError } from "@/shared/lib/api-client";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
-/** Registration form. Token exchange is wired to the backend in Phase 7. */
+/** Registration form. Creates an applicant account, stores the returned token
+ * pair, and routes to the applicant dashboard. */
 export function RegisterForm() {
   const router = useRouter();
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -24,13 +27,21 @@ export function RegisterForm() {
     defaultValues: { fullName: "", email: "", password: "", confirmPassword: "" },
   });
 
-  async function onSubmit(_values: RegisterInput) {
+  async function onSubmit(values: RegisterInput) {
     setSubmitError(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      router.push("/dashboard");
-    } catch {
-      setSubmitError("Unable to create account. Please try again.");
+      await registerAccount({
+        email: values.email,
+        fullName: values.fullName,
+        password: values.password,
+      });
+      router.replace("/dashboard");
+    } catch (error) {
+      setSubmitError(
+        error instanceof ApiError && error.status === 409
+          ? "An account with this email already exists."
+          : "Unable to create account. Please try again.",
+      );
     }
   }
 

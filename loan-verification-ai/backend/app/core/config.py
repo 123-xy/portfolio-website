@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
 
+    # --- Account lockout (brute-force mitigation) ---
+    max_failed_login_attempts: int = 5
+    account_lockout_minutes: int = 15
+
     # --- CORS ---
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 

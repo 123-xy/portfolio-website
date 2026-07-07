@@ -6,15 +6,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, Mail } from "lucide-react";
 import { loginSchema, type LoginInput } from "@/features/auth/domain/schemas";
+import { login } from "@/features/auth/api/auth-api";
+import { fetchCurrentUser } from "@/features/auth/api/auth-api";
+import { homeRouteForRole } from "@/features/auth/hooks/use-auth";
+import { ApiError } from "@/shared/lib/api-client";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
 /**
- * Login form. Wired to validation + submit UX now; the real token exchange is
- * connected to the backend in the authentication phase (Phase 7). Until then a
- * successful validate routes to the applicant dashboard so the shell is
- * navigable end to end.
+ * Login form. Authenticates against the backend, stores the token pair, then
+ * routes to the persona home determined by the user's role.
  */
 export function LoginForm() {
   const router = useRouter();
@@ -29,14 +31,18 @@ export function LoginForm() {
     defaultValues: { email: "", password: "" },
   });
 
-  async function onSubmit(_values: LoginInput) {
+  async function onSubmit(values: LoginInput) {
     setSubmitError(null);
     try {
-      // Phase 7 replaces this with apiClient.post('/auth/login', values).
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      router.push("/dashboard");
-    } catch {
-      setSubmitError("Unable to sign in. Please try again.");
+      await login(values);
+      const user = await fetchCurrentUser();
+      router.replace(homeRouteForRole(user.role));
+    } catch (error) {
+      setSubmitError(
+        error instanceof ApiError && error.status === 401
+          ? "Invalid email or password."
+          : "Unable to sign in. Please try again.",
+      );
     }
   }
 

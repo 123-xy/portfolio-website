@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 5d13f164af99
+Revision ID: b601e4eacebc
 Revises: 
-Create Date: 2026-07-07 09:52:42.732696
+Create Date: 2026-07-07 10:03:58.723425
 """
 from collections.abc import Sequence
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = '5d13f164af99'
+revision: str = 'b601e4eacebc'
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -47,11 +47,11 @@ def upgrade() -> None:
     sa.Column('role', sa.Enum('admin', 'officer', 'applicant', 'auditor', name='user_role'), server_default='applicant', nullable=False),
     sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False),
     sa.Column('failed_login_count', sa.Integer(), server_default=sa.text('0'), nullable=False),
-    sa.Column('locked_until', sa.DateTime(), nullable=True),
-    sa.Column('last_login_at', sa.DateTime(), nullable=True),
+    sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('last_login_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_users')),
     sa.UniqueConstraint('email', name=op.f('uq_users_email'))
     )
@@ -62,8 +62,8 @@ def upgrade() -> None:
     sa.Column('branch_code', sa.String(), nullable=True),
     sa.Column('department', sa.String(), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_officers_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_officers')),
     sa.UniqueConstraint('employee_code', name=op.f('uq_officers_employee_code')),
@@ -72,9 +72,9 @@ def upgrade() -> None:
     op.create_table('refresh_tokens',
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('token_hash', sa.String(), nullable=False),
-    sa.Column('issued_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('expires_at', sa.DateTime(), nullable=False),
-    sa.Column('revoked_at', sa.DateTime(), nullable=True),
+    sa.Column('issued_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('replaced_by', sa.UUID(), nullable=True),
     sa.Column('user_agent', sa.String(), nullable=True),
     sa.Column('ip_address', postgresql.INET(), nullable=True),
@@ -92,7 +92,7 @@ def upgrade() -> None:
     sa.Column('is_active', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.Column('created_by', sa.UUID(), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], name=op.f('fk_risk_engine_config_created_by_users'), ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_risk_engine_config')),
     sa.UniqueConstraint('version', name=op.f('uq_risk_engine_config_version'))
@@ -105,11 +105,11 @@ def upgrade() -> None:
     sa.Column('loan_amount', sa.Numeric(precision=14, scale=2), nullable=False),
     sa.Column('loan_purpose', sa.String(), nullable=True),
     sa.Column('status', sa.Enum('draft', 'submitted', 'processing', 'pending_review', 'needs_attention', 'more_info_requested', 'approved', 'rejected', name='application_status'), server_default='draft', nullable=False),
-    sa.Column('submitted_at', sa.DateTime(), nullable=True),
-    sa.Column('decided_at', sa.DateTime(), nullable=True),
+    sa.Column('submitted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('decided_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.CheckConstraint('loan_amount > 0', name=op.f('ck_applications_loan_amount_positive')),
     sa.ForeignKeyConstraint(['applicant_id'], ['users.id'], name=op.f('fk_applications_applicant_id_users'), ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['assigned_officer_id'], ['officers.id'], name=op.f('fk_applications_assigned_officer_id_officers'), ondelete='SET NULL'),
@@ -133,7 +133,7 @@ def upgrade() -> None:
     sa.Column('prev_hash', sa.String(), nullable=True),
     sa.Column('entry_hash', sa.String(), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['actor_user_id'], ['users.id'], name=op.f('fk_audit_logs_actor_user_id_users'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], name=op.f('fk_audit_logs_application_id_applications'), ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_audit_logs'))
@@ -150,8 +150,8 @@ def upgrade() -> None:
     sa.Column('email', postgresql.CITEXT(), nullable=True),
     sa.Column('phone', sa.String(), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], name=op.f('fk_co_applicants_application_id_applications'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['linked_user_id'], ['users.id'], name=op.f('fk_co_applicants_linked_user_id_users'), ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_co_applicants'))
@@ -164,9 +164,9 @@ def upgrade() -> None:
     sa.Column('title', sa.String(), nullable=False),
     sa.Column('body', sa.String(), nullable=False),
     sa.Column('is_read', sa.Boolean(), server_default=sa.text('false'), nullable=False),
-    sa.Column('read_at', sa.DateTime(), nullable=True),
+    sa.Column('read_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], name=op.f('fk_notifications_application_id_applications'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['recipient_id'], ['users.id'], name=op.f('fk_notifications_recipient_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_notifications'))
@@ -179,7 +179,7 @@ def upgrade() -> None:
     sa.Column('generated_by', sa.UUID(), nullable=False),
     sa.Column('version', sa.Integer(), server_default=sa.text('1'), nullable=False),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], name=op.f('fk_reports_application_id_applications'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['generated_by'], ['users.id'], name=op.f('fk_reports_generated_by_users'), ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_reports')),
@@ -197,7 +197,7 @@ def upgrade() -> None:
     sa.Column('reasons', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('is_current', sa.Boolean(), server_default=sa.text('true'), nullable=False),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.CheckConstraint('confidence BETWEEN 0 AND 1', name=op.f('ck_risk_scores_confidence_range')),
     sa.CheckConstraint('score BETWEEN 0 AND 1', name=op.f('ck_risk_scores_score_range')),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], name=op.f('fk_risk_scores_application_id_applications'), ondelete='CASCADE'),
@@ -216,10 +216,10 @@ def upgrade() -> None:
     sa.Column('consent', sa.Enum('explicit_yes', 'ambiguous', 'explicit_no', 'not_detected', name='consent_status'), nullable=True),
     sa.Column('payload', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('error_reason', sa.String(), nullable=True),
-    sa.Column('started_at', sa.DateTime(), nullable=True),
-    sa.Column('completed_at', sa.DateTime(), nullable=True),
+    sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.CheckConstraint('attempt >= 1', name=op.f('ck_verification_results_attempt_positive')),
     sa.CheckConstraint('confidence IS NULL OR (confidence BETWEEN 0 AND 1)', name=op.f('ck_verification_results_confidence_range')),
     sa.CheckConstraint('similarity_score IS NULL OR (similarity_score BETWEEN 0 AND 1)', name=op.f('ck_verification_results_similarity_score_range')),
@@ -239,13 +239,13 @@ def upgrade() -> None:
     sa.Column('mime_type', sa.String(), nullable=True),
     sa.Column('size_bytes', sa.BigInteger(), nullable=True),
     sa.Column('checksum_sha256', sa.String(), nullable=True),
-    sa.Column('uploaded_at', sa.DateTime(), nullable=True),
-    sa.Column('validated_at', sa.DateTime(), nullable=True),
-    sa.Column('purged_at', sa.DateTime(), nullable=True),
+    sa.Column('uploaded_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('validated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('purged_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('rejection_reason', sa.String(), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.CheckConstraint('size_bytes >= 0', name=op.f('ck_artifacts_size_bytes_non_negative')),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], name=op.f('fk_artifacts_application_id_applications'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['co_applicant_id'], ['co_applicants.id'], name=op.f('fk_artifacts_co_applicant_id_co_applicants'), ondelete='SET NULL'),
@@ -263,7 +263,7 @@ def upgrade() -> None:
     sa.Column('reason', sa.String(), nullable=False),
     sa.Column('risk_score_id', sa.UUID(), nullable=True),
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], name=op.f('fk_officer_decisions_application_id_applications'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['officer_id'], ['officers.id'], name=op.f('fk_officer_decisions_officer_id_officers'), ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['risk_score_id'], ['risk_scores.id'], name=op.f('fk_officer_decisions_risk_score_id_risk_scores')),

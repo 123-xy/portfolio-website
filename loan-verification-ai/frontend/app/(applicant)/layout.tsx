@@ -1,9 +1,9 @@
+import { AuthGuard } from "@/features/auth/components/auth-guard";
+
 /**
- * Applicant persona group. Kept as a passthrough for now; role-based route
- * protection (redirect unauthenticated/unauthorized users) is added with the
- * auth middleware in Phase 7. Pages compose their own AppShell with the
- * applicant bottom-nav.
+ * Applicant persona group. Client-side auth guard redirects unauthenticated
+ * users to /login; the backend independently enforces RBAC on every request.
  */
 export default function ApplicantLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <AuthGuard>{children}</AuthGuard>;
 }

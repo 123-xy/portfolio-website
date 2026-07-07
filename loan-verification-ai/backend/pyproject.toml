@@ -50,8 +50,26 @@ select = ["E", "F", "I", "B", "UP", "N", "ASYNC"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+filterwarnings = [
+    # passlib imports the stdlib `crypt` module, deprecated in 3.11; not our code.
+    "ignore:'crypt' is deprecated:DeprecationWarning",
+]
 
 [tool.mypy]
 python_version = "3.11"
 plugins = ["pydantic.mypy"]
 strict = true
+
+# passlib and python-jose ship no type information; ignore their missing stubs
+# (return values are explicitly coerced at the call sites in infrastructure/auth).
+[[tool.mypy.overrides]]
+module = ["passlib.*", "jose.*"]
+ignore_missing_imports = true
+
+# Tests use fakes and fixtures where full strict typing adds noise without
+# value; production code under app/ remains fully strict.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+warn_unused_ignores = false

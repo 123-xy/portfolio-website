@@ -1,4 +1,5 @@
 import { env } from "@/shared/lib/env";
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/shared/lib/auth-tokens";
 
 /**
  * Thin, typed fetch wrapper around the backend REST API (/api/v1).
@@ -125,5 +126,35 @@ export class ApiClient {
   }
 }
 
-/** Default browser client instance. Token wiring is attached by the auth feature. */
-export const apiClient = new ApiClient();
+/**
+ * Default browser client, wired to the token store.
+ *
+ * On a 401 it attempts a single refresh by calling the backend's rotate
+ * endpoint directly (a bare fetch, not `this`, to avoid recursion), persisting
+ * the new pair and returning the fresh access token so the original request is
+ * retried once. If refresh fails the session is cleared.
+ */
+async function refreshViaBackend(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  const response = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, "")}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+
+  if (!response.ok) {
+    clearTokens();
+    return null;
+  }
+
+  const data = (await response.json()) as { access_token: string; refresh_token: string };
+  setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
+  return data.access_token;
+}
+
+export const apiClient = new ApiClient({
+  getAccessToken: () => getAccessToken(),
+  refreshAccessToken: refreshViaBackend,
+});

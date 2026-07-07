@@ -40,12 +40,14 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency yielding a request-scoped session that is rolled back
-    and closed on exit; use cases commit explicitly on success."""
+    """FastAPI dependency yielding a request-scoped session (unit of work):
+    commit once if the handler succeeds, roll back on any exception. Repositories
+    stay commit-free so a single request is one atomic transaction."""
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
         try:
             yield session
+            await session.commit()
         except Exception:
             await session.rollback()
             raise
