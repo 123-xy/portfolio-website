@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Backend image: FastAPI API + Celery worker (same image, different command).
+#
+# Build context is the repository's `loan-verification-ai/` root (NOT
+# `backend/`), because the backend depends on the first-party `ai-services`
+# package by path — both trees must be visible to the build. See
+# docker-compose.yml `build.context`.
+# ---------------------------------------------------------------------------
+
+FROM python:3.11-slim AS builder
+
+# - PYTHONDONTWRITEBYTECODE/PYTHONUNBUFFERED: standard container hygiene.
+# - PIP_NO_CACHE_DIR: keep the layer small.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+# Build wheels for both first-party packages into /wheels so the runtime
+# stage installs from local artifacts only (no build toolchain, no re-resolve).
+COPY ai-services/ ./ai-services/
+COPY backend/ ./backend/
+
+RUN pip install --upgrade pip build hatchling \
+    && pip wheel --no-deps --wheel-dir /wheels ./ai-services \
+    && pip wheel --no-deps --wheel-dir /wheels ./backend
+
+# Resolve and install the full dependency closure into a self-contained prefix
+# that the runtime stage copies verbatim.
+RUN pip install --prefix=/install /wheels/*.whl
+
+
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/install/bin:${PATH}"
+
+# curl is used by the compose healthcheck; libpq is not needed (asyncpg is
+# pure-Python and psycopg2 is a dev-only dependency, excluded from the image).
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root runtime user — the process never needs to write to the image.
+RUN useradd --create-home --uid 10001 appuser
+
+COPY --from=builder /install /install
+
+WORKDIR /app
+# The dependency closure (fastapi, sqlalchemy, ai-services, …) lives in
+# /install. The app source is copied here so both `uvicorn app.main:app` and
+# `alembic upgrade head` run from /app, where alembic.ini's relative
+# script_location (app/infrastructure/db/migrations) resolves.
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/app ./app
+COPY docker/entrypoint-backend.sh /usr/local/bin/entrypoint-backend.sh
+RUN chmod +x /usr/local/bin/entrypoint-backend.sh
+
+USER appuser
+
+EXPOSE 8000
+
+# Default command runs the API; the worker and migrate services override it in
+# docker-compose.yml. The entrypoint optionally waits for dependencies.
+ENTRYPOINT ["entrypoint-backend.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -25,14 +25,25 @@ class S3ObjectStorage(ObjectStorage):
         # Browser direct-uploads are cross-origin (frontend -> storage), so the
         # bucket needs a CORS policy allowing the app origins to PUT/GET.
         self._cors_origins = settings.cors_origins
-        self._client = boto3.client(
-            "s3",
-            endpoint_url=settings.s3_endpoint_url,
-            region_name=settings.s3_region,
-            aws_access_key_id=settings.s3_access_key,
-            aws_secret_access_key=settings.s3_secret_key,
-            # SigV4 + path-style addressing are required for MinIO and safe for S3.
-            config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+        # SigV4 + path-style addressing are required for MinIO and safe for S3.
+        client_config = Config(signature_version="s3v4", s3={"addressing_style": "path"})
+        common = {
+            "region_name": settings.s3_region,
+            "aws_access_key_id": settings.s3_access_key,
+            "aws_secret_access_key": settings.s3_secret_key,
+            "config": client_config,
+        }
+        # Server-side operations (bucket ensure, put/head/get/delete) go through
+        # the internal endpoint.
+        self._client = boto3.client("s3", endpoint_url=settings.s3_endpoint_url, **common)
+        # Presigned URLs are handed to the browser, so they must be signed
+        # against the endpoint the browser can actually reach. When a distinct
+        # public endpoint is configured, sign with a second client; otherwise
+        # one endpoint serves both and we reuse the same client.
+        self._signing_client = (
+            boto3.client("s3", endpoint_url=settings.s3_public_endpoint_url, **common)
+            if settings.s3_public_endpoint_url
+            else self._client
         )
 
     async def ensure_bucket(self) -> None:
@@ -63,7 +74,7 @@ class S3ObjectStorage(ObjectStorage):
     ) -> str:
         def _sign() -> str:
             return str(
-                self._client.generate_presigned_url(
+                self._signing_client.generate_presigned_url(
                     "put_object",
                     Params={"Bucket": self._bucket, "Key": key, "ContentType": content_type},
                     ExpiresIn=expires_seconds,
@@ -75,7 +86,7 @@ class S3ObjectStorage(ObjectStorage):
     async def create_download_url(self, key: str, *, expires_seconds: int = 300) -> str:
         def _sign() -> str:
             return str(
-                self._client.generate_presigned_url(
+                self._signing_client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": self._bucket, "Key": key},
                     ExpiresIn=expires_seconds,

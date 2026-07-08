@@ -59,6 +59,12 @@ class Settings(BaseSettings):
 
     # --- Object storage (S3-compatible) ---
     s3_endpoint_url: str | None = None
+    # Endpoint used ONLY to sign presigned URLs handed to the browser. Needed
+    # when the backend reaches storage by an internal name the browser can't
+    # resolve — e.g. `http://minio:9000` inside Docker Compose vs
+    # `http://localhost:9000` from the host. Leave unset for AWS S3 or any
+    # setup where one endpoint serves both (the moto/local dev default).
+    s3_public_endpoint_url: str | None = None
     s3_region: str = "us-east-1"
     s3_bucket: str = "verify-artifacts"
     s3_access_key: str | None = None

@@ -1,0 +1,27 @@
+# Build context for Dockerfile.frontend is this directory. Exclude everything
+# the production build doesn't need so the context stays small.
+
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# Test-only: the E2E suite and its Playwright config/fixtures never affect
+# `next build`.
+e2e/
+playwright.config.ts
+test-results/
+playwright-report/
+
+# Local secrets / env (NEXT_PUBLIC_* are passed as build args instead).
+.env
+.env.*
+!.env.example
+
+# VCS / editor / OS noise.
+.git/
+.DS_Store
+.idea/
+.vscode/
+README.md

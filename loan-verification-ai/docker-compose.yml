@@ -1,0 +1,178 @@
+# AI Co-Applicant Verification Platform — full local/staging stack.
+#
+#   docker compose up --build
+#
+# Runs the whole system: Postgres, Redis, MinIO (S3-compatible storage), a
+# one-shot migration job, the FastAPI API, a Celery worker, and the Next.js
+# frontend. Every value is interpolated with a safe default, so it comes up
+# with no configuration; copy .env.docker.example to .env to override (e.g. to
+# set real secrets). Not hardened for production as-is — see docker/README.md
+# and docs/phase-14-docker.md for the prod overrides that belong on top of this.
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-verify}:${POSTGRES_PASSWORD:-verify}@postgres:5432/${POSTGRES_DB:-verify}
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production-use-a-long-random-string}
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  # Backend reaches MinIO over the internal network; the browser reaches it via
+  # the host-published port, so presigned URLs are signed against that.
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
+  S3_BUCKET: ${S3_BUCKET:-verify-artifacts}
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+  S3_REGION: us-east-1
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-verify}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-verify}
+      POSTGRES_DB: ${POSTGRES_DB:-verify}
+      # Force UTF8 — a SQL_ASCII cluster crashes on the ₹ symbol this app emits
+      # throughout its reports and UI (a real bug found in Phase 13).
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-verify} -d ${POSTGRES_DB:-verify}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot: create the bucket before the backend starts. The backend also
+  # idempotently ensures the bucket + CORS at startup, but doing it here means
+  # storage is ready deterministically regardless of backend start order.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 "${MINIO_ROOT_USER:-minioadmin}" "${MINIO_ROOT_PASSWORD:-minioadmin}" &&
+        mc mb --ignore-existing "local/${S3_BUCKET:-verify-artifacts}"
+    restart: "no"
+
+  # One-shot: apply Alembic migrations (and the seeded demo officer) before the
+  # API and worker start. `restart: no` + `condition: service_completed_successfully`
+  # on dependents makes this a proper migration gate.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    image: loan-verification-backend:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    image: loan-verification-backend:latest
+    environment:
+      <<: *backend-env
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  worker:
+    image: loan-verification-backend:latest
+    command:
+      - celery
+      - -A
+      - app.infrastructure.tasks.celery_app.celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency=${WORKER_CONCURRENCY:-2}
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-VerifyCo}
+    image: loan-verification-frontend:latest
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/login"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

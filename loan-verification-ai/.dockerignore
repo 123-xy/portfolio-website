@@ -1,0 +1,42 @@
+# Build context for Dockerfile.backend is this directory (it needs both
+# backend/ and ai-services/). Everything the backend image doesn't need is
+# excluded to keep the context small and builds fast/reproducible.
+
+# The frontend has its own image and build context — never ship it here.
+frontend/
+
+# Docs, ops, and sibling scaffolding not needed to build/run the backend.
+docs/
+monitoring/
+infrastructure/
+scripts/
+storage/
+# Test suites are never packaged into the wheels (hatch packages only `app`);
+# excluding them keeps the build context small.
+tests/
+**/tests/
+**/README.md
+
+# Python build/venv/test artifacts.
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+
+# Local secrets and environment files (image reads config from the runtime env).
+**/.env
+**/.env.*
+!**/.env.example
+
+# VCS / editor / OS noise.
+.git/
+.gitignore
+**/.DS_Store
+**/.idea/
+**/.vscode/

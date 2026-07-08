@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Frontend image: Next.js 15 (App Router) built to a standalone server bundle.
+#
+# Build context is `loan-verification-ai/frontend/`. See docker-compose.yml.
+#
+# NEXT_PUBLIC_API_BASE_URL is inlined into the client bundle at BUILD time
+# (Next.js compiles NEXT_PUBLIC_* into the browser JS), so it is a build ARG,
+# not a runtime env var. The default assumes the browser reaches the backend
+# via the host-published port; override it for other topologies (e.g. behind a
+# reverse proxy) with `--build-arg`.
+# ---------------------------------------------------------------------------
+
+FROM node:22-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+
+FROM node:22-slim AS builder
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+ARG NEXT_PUBLIC_APP_NAME=VerifyCo
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL} \
+    NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# e2e/ and playwright config are test-only; they don't affect `next build`, but
+# excluding them via .dockerignore keeps the build context small.
+RUN npm run build
+
+
+FROM node:22-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 nextjs
+
+# The standalone output bundles a minimal node_modules and a server.js; static
+# assets are copied alongside at the paths server.js expects.
+COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
