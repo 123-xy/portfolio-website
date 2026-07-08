@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     debug: bool = False
     app_name: str = "AI Co-Applicant Verification Platform"
     api_v1_prefix: str = "/api/v1"
+    # Expose Prometheus metrics at /metrics (scraped in the monitoring stack).
+    metrics_enabled: bool = True
 
     # --- Database ---
     # Async DSN (asyncpg) used by the app; Alembic derives a sync DSN from it.

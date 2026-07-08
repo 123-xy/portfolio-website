@@ -18,6 +18,7 @@ dependencies = [
     "email-validator>=2.2.0",
     "boto3>=1.35.0",
     "celery[redis]>=5.4.0",
+    "prometheus-fastapi-instrumentator>=7.0.0",
     # First-party inference library (installed from ../ai-services; see README).
     "loan-verification-ai-services",
 ]

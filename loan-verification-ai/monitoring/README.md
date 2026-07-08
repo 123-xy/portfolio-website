@@ -1,13 +1,28 @@
 # monitoring/ — Observability configuration
 
-Metrics, dashboards, and alert rules for the platform. Planned:
+Prometheus + Grafana configuration for the platform. Run alongside the stack
+with the monitoring overlay:
 
-- Prometheus scrape config + service metrics (API latency, pipeline stage
-  latency/failure rate, queue depth per Celery queue).
-- Grafana dashboards (application volume, approval/rejection rates, risk
-  trends, processing SLA).
-- Alert rules: stuck pipelines past SLA, worker queue backlog, error-rate
-  spikes, DB/Redis health.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+```
 
-The `detect_stuck_pipelines` beat job (Phase 2 §4.3) feeds the stuck-job
-alert. Wired up in Phase 14/15.
+- `prometheus/prometheus.yml` — scrape config. Scrapes the backend's `/metrics`
+  endpoint (exposed via `prometheus-fastapi-instrumentator`): HTTP request
+  rate, latency histogram, error rate, in-progress requests, all labelled by
+  method / handler / status.
+- `prometheus/alerts.yml` — alert rules: backend unreachable, elevated 5xx
+  rate, high p95 latency.
+- `grafana/provisioning/` — auto-provisions the Prometheus datasource so
+  Grafana is usable on first boot.
+
+## Status
+
+Live for HTTP-level metrics (the backend instruments every request). The
+pipeline-stage latency/failure and per-queue depth metrics envisioned in
+Phase 2 §4.3 need the Celery worker to export its own metrics (e.g. a
+`prometheus_client` pushgateway or a metrics exporter on the worker) — a
+follow-up, since the worker is a task process without an HTTP surface to
+scrape. The `detect_stuck_pipelines` beat job named there was never built (the
+pipeline is a single synchronous Celery task; see docs/phase-14-docker.md), so
+its stuck-job alert is intentionally absent.

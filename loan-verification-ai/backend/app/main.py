@@ -67,6 +67,12 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
+    if settings.metrics_enabled:
+        # Import lazily so the metrics dependency is only needed when enabled.
+        from app.infrastructure.observability.metrics import instrument_app
+
+        instrument_app(app)
+
     return app
 
 

@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: loan-verification-ai
+
+jobs:
+  backend:
+    name: Backend (lint, types, tests)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: verify
+          POSTGRES_PASSWORD: verify
+          POSTGRES_DB: verify_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U verify -d verify_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      # Point the test suite at the CI service containers. tests/conftest.py
+      # uses os.environ.setdefault, so these take precedence over its defaults.
+      DATABASE_URL: postgresql+asyncpg://verify:verify@127.0.0.1:5432/verify_test
+      REDIS_URL: redis://127.0.0.1:6379/1
+      JWT_SECRET_KEY: ci-secret-key-not-used-in-production-0123456789
+      S3_ENDPOINT_URL: http://127.0.0.1:5000
+      S3_BUCKET: verify-artifacts-test
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_REGION: us-east-1
+      CORS_ORIGINS: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./ai-services
+          pip install -e "./backend[dev]"
+
+      - name: Start moto (S3 mock)
+        working-directory: loan-verification-ai/backend
+        run: |
+          nohup moto_server -p 5000 > moto.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:5000/ >/dev/null && break || sleep 1
+          done
+
+      - name: Ruff (lint)
+        working-directory: loan-verification-ai/backend
+        run: ruff check app tests
+
+      - name: Mypy (types)
+        working-directory: loan-verification-ai/backend
+        run: mypy app tests
+
+      - name: Pytest (unit + integration, with coverage gate)
+        working-directory: loan-verification-ai/backend
+        run: pytest --cov=app --cov-report=term-missing
+
+      - name: ai-services checks
+        working-directory: loan-verification-ai/ai-services
+        run: |
+          pip install -e ".[dev]"
+          ruff check ai_services tests
+          mypy ai_services
+          pytest -q
+
+  frontend:
+    name: Frontend (types, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: loan-verification-ai/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: loan-verification-ai/frontend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: loan-verification-ai/frontend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: loan-verification-ai/frontend
+        run: npm run build
+
+  docker-build:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    # Validate the Dockerfiles build for real (couldn't be exercised in the
+    # dev sandbox, which blocks registry pulls). Build only — no push.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: loan-verification-ai
+          file: loan-verification-ai/docker/Dockerfile.backend
+          push: false
+          tags: loan-verification-backend:ci
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: loan-verification-ai/frontend
+          file: loan-verification-ai/docker/Dockerfile.frontend
+          push: false
+          tags: loan-verification-frontend:ci

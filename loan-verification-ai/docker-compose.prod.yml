@@ -1,0 +1,70 @@
+# Production overrides — layer on top of the base stack:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Differences from the base stack:
+#   - nginx terminates TLS and is the ONLY service exposed to the host
+#     (80/443); the app and API are reached only through it.
+#   - Secrets are REQUIRED (no dev defaults) — compose refuses to start if
+#     JWT_SECRET_KEY / DB / MinIO credentials are unset. Provide them via a
+#     `.env` file (see infrastructure/.env.production.example) or a secrets
+#     manager.
+#   - restart: always everywhere; DEBUG off.
+#
+# Object storage: this overlay keeps MinIO as the object-storage endpoint
+# (public on :9000). For a managed deployment, point S3_* at real AWS S3
+# instead and don't start the minio/minio-init services. See
+# docs/phase-15-deployment.md.
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    restart: always
+
+  redis:
+    restart: always
+
+  minio:
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    restart: always
+
+  backend:
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set a long random JWT_SECRET_KEY}
+      ENVIRONMENT: production
+      DEBUG: "false"
+    # Reached only through nginx; no host port.
+    ports: !reset []
+    restart: always
+
+  worker:
+    environment:
+      ENVIRONMENT: production
+    restart: always
+
+  frontend:
+    # Reached only through nginx; no host port.
+    ports: !reset []
+    restart: always
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      # TLS certs and the ACME webroot are provided by the host (see the
+      # deployment runbook). Mount your real cert/key here.
+      - ${TLS_CERTS_DIR:-./docker/nginx/certs}:/etc/nginx/certs:ro
+      - ${ACME_WEBROOT_DIR:-./docker/nginx/certbot}:/var/www/certbot:ro
+    restart: always

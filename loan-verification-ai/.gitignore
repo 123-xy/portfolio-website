@@ -8,6 +8,13 @@ storage/*
 .env.*
 !.env.example
 !.env.docker.example
+!.env.production.example
+
+# --- TLS material (never commit real or self-signed keys) ---
+docker/nginx/certs/
+docker/nginx/certbot/
+*.pem
+*.key
 
 # --- Python (backend, ai-services) ---
 __pycache__/
