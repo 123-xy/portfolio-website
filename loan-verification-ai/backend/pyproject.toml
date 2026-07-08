@@ -68,8 +68,10 @@ strict = true
 
 # passlib and python-jose ship no type information; ignore their missing stubs
 # (return values are explicitly coerced at the call sites in infrastructure/auth).
+# ai_services is NOT here — it ships a py.typed marker, so mypy checks calls
+# into it for real.
 [[tool.mypy.overrides]]
-module = ["passlib.*", "jose.*", "boto3.*", "botocore.*", "celery.*", "ai_services.*"]
+module = ["passlib.*", "jose.*", "boto3.*", "botocore.*", "celery.*"]
 ignore_missing_imports = true
 
 # Celery's task decorator is untyped; allow it on the tasks module only.

@@ -132,6 +132,14 @@ class SqlAlchemyApplicationRepository(ApplicationRepository):
         )
         return [_app_to_entity(m) for m in result.scalars().all()]
 
+    async def list_all(self) -> list[AppEntity]:
+        result = await self._session.execute(
+            select(AppModel)
+            .options(selectinload(AppModel.co_applicant), selectinload(AppModel.artifacts))
+            .order_by(AppModel.created_at.desc())
+        )
+        return [_app_to_entity(m) for m in result.scalars().all()]
+
     async def set_status(
         self,
         application_id: uuid.UUID,

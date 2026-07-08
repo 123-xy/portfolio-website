@@ -74,6 +74,9 @@ class FakeApps(ApplicationRepository):
     async def list_for_review(self):  # pragma: no cover
         return []
 
+    async def list_all(self):  # pragma: no cover
+        return []
+
     async def set_status(
         self, application_id, status, *, mark_submitted=False, mark_decided=False
     ) -> None:
@@ -228,6 +231,11 @@ class BytesStorage(ObjectStorage):
 
     async def download_bytes(self, key: str) -> bytes:
         return b"x" * 300_000
+
+    async def upload_bytes(  # pragma: no cover
+        self, key: str, data: bytes, *, content_type: str
+    ) -> None:
+        pass
 
     async def delete(self, key: str) -> None:  # pragma: no cover
         pass

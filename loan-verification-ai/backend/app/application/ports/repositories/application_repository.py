@@ -44,6 +44,13 @@ class ApplicationRepository(ABC):
         ...
 
     @abstractmethod
+    async def list_all(self) -> list[Application]:
+        """Every application, regardless of status — for compliance/bulk
+        export and analytics only, never exposed as a general listing
+        endpoint."""
+        ...
+
+    @abstractmethod
     async def set_status(
         self,
         application_id: uuid.UUID,

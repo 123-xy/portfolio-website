@@ -11,6 +11,9 @@ from ai_services.face_recognition.matcher import build_face_matcher
 from ai_services.fraud_detection.detector import build_fraud_detector
 from ai_services.intent_detection.consent import build_consent_detector
 from ai_services.intent_detection.intent import build_intent_analyzer
+from ai_services.report_generator.csv_renderer import render_bulk_csv, render_csv
+from ai_services.report_generator.json_renderer import render_bulk_json, render_json
+from ai_services.report_generator.pdf_renderer import render_pdf
 from ai_services.risk_engine.engine import build_risk_engine
 from ai_services.speech_to_text.transcriber import build_transcriber
 from ai_services.video_processing.frame_extractor import build_frame_extractor
@@ -25,4 +28,9 @@ __all__ = [
     "build_risk_engine",
     "build_transcriber",
     "build_frame_extractor",
+    "render_bulk_csv",
+    "render_bulk_json",
+    "render_csv",
+    "render_json",
+    "render_pdf",
 ]

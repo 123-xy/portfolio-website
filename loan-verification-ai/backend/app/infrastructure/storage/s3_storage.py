@@ -104,6 +104,13 @@ class S3ObjectStorage(ObjectStorage):
 
         return await asyncio.to_thread(_get)
 
+    async def upload_bytes(self, key: str, data: bytes, *, content_type: str) -> None:
+        await asyncio.to_thread(
+            lambda: self._client.put_object(
+                Bucket=self._bucket, Key=key, Body=data, ContentType=content_type
+            )
+        )
+
     async def delete(self, key: str) -> None:
         await asyncio.to_thread(
             lambda: self._client.delete_object(Bucket=self._bucket, Key=key)

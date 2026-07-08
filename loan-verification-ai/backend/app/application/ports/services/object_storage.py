@@ -48,6 +48,12 @@ class ObjectStorage(ABC):
         ...
 
     @abstractmethod
+    async def upload_bytes(self, key: str, data: bytes, *, content_type: str) -> None:
+        """Server-side upload (e.g. generated reports) — distinct from the
+        client's direct presigned-PUT flow used for large media."""
+        ...
+
+    @abstractmethod
     async def delete(self, key: str) -> None:
         """Delete an object (idempotent)."""
         ...

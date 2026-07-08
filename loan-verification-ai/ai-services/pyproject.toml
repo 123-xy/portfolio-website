@@ -5,8 +5,12 @@ description = "Reusable AI/ML inference modules for the co-applicant verificatio
 requires-python = ">=3.11"
 # Intentionally dependency-light: the default providers are deterministic and
 # pure-Python so the pipeline runs anywhere. Heavy providers (OpenCV, MediaPipe,
-# InsightFace, Whisper) are optional extras enabled per deployment.
-dependencies = []
+# InsightFace, Whisper) are optional extras enabled per deployment. reportlab
+# is a real, lightweight, pure-Python PDF renderer (no native/model deps), so
+# it's a base dependency rather than an optional extra.
+dependencies = [
+    "reportlab>=4.2.0",
+]
 
 [project.optional-dependencies]
 # Real model backends — installed only where the hardware/network supports them.
@@ -20,6 +24,7 @@ dev = [
     "pytest>=8.3.4",
     "ruff>=0.8.4",
     "mypy>=1.14.0",
+    "types-reportlab>=4.2.0",
 ]
 
 [build-system]

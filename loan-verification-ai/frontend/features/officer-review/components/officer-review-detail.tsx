@@ -8,6 +8,7 @@ import { ArtifactPreview } from "@/features/officer-review/components/artifact-p
 import { EvidenceCard } from "@/features/officer-review/components/evidence-card";
 import { DecisionPanel } from "@/features/officer-review/components/decision-panel";
 import { AuditTrailCard } from "@/features/officer-review/components/audit-trail-card";
+import { GenerateReportButton } from "@/features/reports/components/generate-report-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -91,6 +92,8 @@ export function OfficerReviewDetail({ applicationId }: { applicationId: string }
           </CardContent>
         </Card>
       )}
+
+      <GenerateReportButton applicationId={app.id} />
 
       <AuditTrailCard applicationId={app.id} />
     </div>

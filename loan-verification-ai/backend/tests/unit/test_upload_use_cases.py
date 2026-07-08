@@ -58,6 +58,9 @@ class FakeAppRepo(ApplicationRepository):
     async def list_for_review(self) -> list[Application]:
         return [a for a in self.apps.values() if a.status == ApplicationStatus.PENDING_REVIEW]
 
+    async def list_all(self) -> list[Application]:
+        return list(self.apps.values())
+
     async def set_status(
         self, application_id, status, *, mark_submitted=False, mark_decided=False
     ) -> None:
@@ -117,6 +120,11 @@ class FakeStorage(ObjectStorage):
 
     async def download_bytes(self, key: str) -> bytes:  # pragma: no cover
         return b""
+
+    async def upload_bytes(  # pragma: no cover
+        self, key: str, data: bytes, *, content_type: str
+    ) -> None:
+        pass
 
     async def delete(self, key: str) -> None:
         self.deleted.append(key)
