@@ -1,8 +1,8 @@
 from functools import lru_cache
-from typing import Literal, cast
+from typing import Annotated, Literal, cast
 
 from pydantic import Field, PostgresDsn, RedisDsn, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["development", "test", "production"]
 
@@ -51,7 +51,11 @@ class Settings(BaseSettings):
     account_lockout_minutes: int = 15
 
     # --- CORS ---
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    # NoDecode: keep the raw env string (comma-separated) out of pydantic-settings'
+    # JSON decoder so the validator below can split it.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000"]
+    )
 
     # --- Object storage (S3-compatible) ---
     s3_endpoint_url: str | None = None

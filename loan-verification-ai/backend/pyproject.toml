@@ -16,6 +16,7 @@ dependencies = [
     "passlib[argon2]>=1.7.4",
     "python-multipart>=0.0.20",
     "email-validator>=2.2.0",
+    "boto3>=1.35.0",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +27,8 @@ dev = [
     "ruff>=0.8.4",
     "mypy>=1.14.0",
     "psycopg2-binary>=2.9.10",
+    "moto[server]>=5.0.0",
+    "boto3-stubs[s3]>=1.35.0",
 ]
 
 [build-system]
@@ -63,7 +66,7 @@ strict = true
 # passlib and python-jose ship no type information; ignore their missing stubs
 # (return values are explicitly coerced at the call sites in infrastructure/auth).
 [[tool.mypy.overrides]]
-module = ["passlib.*", "jose.*"]
+module = ["passlib.*", "jose.*", "boto3.*", "botocore.*"]
 ignore_missing_imports = true
 
 # Tests use fakes and fixtures where full strict typing adds noise without
@@ -71,5 +74,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["tests.*"]
 disallow_untyped_defs = false
+disallow_incomplete_defs = false
 disallow_untyped_calls = false
 warn_unused_ignores = false

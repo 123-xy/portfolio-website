@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { AppShell } from "@/shared/ui/shell/app-shell";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
-import { ApplicationCard } from "@/features/applications/components/application-card";
-import { DEMO_APPLICATIONS } from "@/features/applications/api/fixtures";
+import { Button } from "@/shared/ui/button";
+import { ApplicationList } from "@/features/applications/components/application-list";
 
 export const metadata: Metadata = { title: "Applications" };
 
@@ -10,15 +12,19 @@ export default function ApplicationsPage() {
   return (
     <AppShell
       title="Applications"
-      subtitle={`${DEMO_APPLICATIONS.length} total`}
       nav="applicant"
-      action={<ThemeToggle />}
+      action={
+        <>
+          <Link href="/applications/new" aria-label="New application">
+            <Button variant="ghost" size="icon">
+              <Plus />
+            </Button>
+          </Link>
+          <ThemeToggle />
+        </>
+      }
     >
-      <div className="space-y-3">
-        {DEMO_APPLICATIONS.map((application) => (
-          <ApplicationCard key={application.id} application={application} />
-        ))}
-      </div>
+      <ApplicationList />
     </AppShell>
   );
 }

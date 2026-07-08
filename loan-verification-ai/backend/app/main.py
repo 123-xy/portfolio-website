@@ -21,6 +21,14 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging()
     settings = get_settings()
     logger.info("startup", extra={"environment": settings.environment, "version": __version__})
+    # Ensure the object-storage bucket exists (idempotent); failures here are
+    # logged but non-fatal so the API still serves non-upload traffic.
+    try:
+        from app.infrastructure.storage.s3_storage import S3ObjectStorage
+
+        await S3ObjectStorage(settings).ensure_bucket()
+    except Exception:
+        logger.warning("bucket_ensure_failed", exc_info=True)
     yield
     await dispose_engine()
     logger.info("shutdown")
