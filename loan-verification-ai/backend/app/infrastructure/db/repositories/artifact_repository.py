@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import update
+from sqlalchemy import exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.ports.repositories.artifact_repository import ArtifactRepository
@@ -86,3 +86,17 @@ class SqlAlchemyArtifactRepository(ArtifactRepository):
             )
             .values(status=ArtifactStatus.REJECTED, rejection_reason="Superseded by re-upload")
         )
+
+    async def checksum_seen_on_other_application(
+        self, checksum: str, exclude_application_id: uuid.UUID
+    ) -> bool:
+        result = await self._session.execute(
+            select(
+                exists().where(
+                    ArtifactModel.checksum_sha256 == checksum,
+                    ArtifactModel.application_id != exclude_application_id,
+                    ArtifactModel.status != ArtifactStatus.REJECTED,
+                )
+            )
+        )
+        return bool(result.scalar())

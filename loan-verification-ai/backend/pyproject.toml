@@ -17,6 +17,9 @@ dependencies = [
     "python-multipart>=0.0.20",
     "email-validator>=2.2.0",
     "boto3>=1.35.0",
+    "celery[redis]>=5.4.0",
+    # First-party inference library (installed from ../ai-services; see README).
+    "loan-verification-ai-services",
 ]
 
 [project.optional-dependencies]
@@ -66,8 +69,13 @@ strict = true
 # passlib and python-jose ship no type information; ignore their missing stubs
 # (return values are explicitly coerced at the call sites in infrastructure/auth).
 [[tool.mypy.overrides]]
-module = ["passlib.*", "jose.*", "boto3.*", "botocore.*"]
+module = ["passlib.*", "jose.*", "boto3.*", "botocore.*", "celery.*", "ai_services.*"]
 ignore_missing_imports = true
+
+# Celery's task decorator is untyped; allow it on the tasks module only.
+[[tool.mypy.overrides]]
+module = ["app.infrastructure.tasks.*"]
+disallow_untyped_decorators = false
 
 # Tests use fakes and fixtures where full strict typing adds noise without
 # value; production code under app/ remains fully strict.

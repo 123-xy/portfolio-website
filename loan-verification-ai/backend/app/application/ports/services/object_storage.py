@@ -43,6 +43,11 @@ class ObjectStorage(ABC):
         ...
 
     @abstractmethod
+    async def download_bytes(self, key: str) -> bytes:
+        """Fetch an object's full contents (used by the AI pipeline)."""
+        ...
+
+    @abstractmethod
     async def delete(self, key: str) -> None:
         """Delete an object (idempotent)."""
         ...

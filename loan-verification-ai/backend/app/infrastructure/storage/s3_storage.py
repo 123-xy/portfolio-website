@@ -97,6 +97,13 @@ class S3ObjectStorage(ObjectStorage):
 
         return await asyncio.to_thread(_head)
 
+    async def download_bytes(self, key: str) -> bytes:
+        def _get() -> bytes:
+            response = self._client.get_object(Bucket=self._bucket, Key=key)
+            return bytes(response["Body"].read())
+
+        return await asyncio.to_thread(_get)
+
     async def delete(self, key: str) -> None:
         await asyncio.to_thread(
             lambda: self._client.delete_object(Bucket=self._bucket, Key=key)

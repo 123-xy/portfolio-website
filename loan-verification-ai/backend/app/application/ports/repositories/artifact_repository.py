@@ -38,3 +38,11 @@ class ArtifactRepository(ABC):
         """Reject any prior live artifact of a single-instance kind so a
         re-upload supersedes it (keeps the singleton partial index satisfied)."""
         ...
+
+    @abstractmethod
+    async def checksum_seen_on_other_application(
+        self, checksum: str, exclude_application_id: uuid.UUID
+    ) -> bool:
+        """True if the same media checksum is used by a different application —
+        a duplicate-media fraud signal."""
+        ...

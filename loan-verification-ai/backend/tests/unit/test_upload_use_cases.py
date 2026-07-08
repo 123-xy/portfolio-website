@@ -13,6 +13,7 @@ from app.application.dto.applications import (
 from app.application.ports.repositories.application_repository import ApplicationRepository
 from app.application.ports.repositories.artifact_repository import ArtifactRepository
 from app.application.ports.services.object_storage import ObjectStat, ObjectStorage
+from app.application.ports.services.pipeline import PipelineDispatcher
 from app.application.use_cases.applications.create_application import CreateApplication
 from app.application.use_cases.applications.query_applications import GetApplication
 from app.application.use_cases.applications.submit_application import SubmitApplication
@@ -90,6 +91,9 @@ class FakeArtifactRepo(ArtifactRepository):
     async def reject_existing_singletons(self, application_id, kind) -> None:
         self.rejected_kinds.append(kind)
 
+    async def checksum_seen_on_other_application(self, checksum, exclude_application_id) -> bool:
+        return False
+
 
 class FakeStorage(ObjectStorage):
     def __init__(self, stat: ObjectStat | None = None) -> None:
@@ -108,8 +112,19 @@ class FakeStorage(ObjectStorage):
     async def stat(self, key: str) -> ObjectStat | None:
         return self._stat
 
+    async def download_bytes(self, key: str) -> bytes:  # pragma: no cover
+        return b""
+
     async def delete(self, key: str) -> None:
         self.deleted.append(key)
+
+
+class FakeDispatcher(PipelineDispatcher):
+    def __init__(self) -> None:
+        self.dispatched: list[uuid.UUID] = []
+
+    def dispatch(self, application_id) -> None:
+        self.dispatched.append(application_id)
 
 
 async def _new_draft(apps: FakeAppRepo, owner: uuid.UUID) -> Application:
@@ -196,7 +211,7 @@ async def test_submit_requires_all_artifacts() -> None:
     owner = uuid.uuid4()
     app = await _new_draft(apps, owner)
     with pytest.raises(ValidationError):
-        await SubmitApplication(apps).execute(app.id, owner, UserRole.APPLICANT)
+        await SubmitApplication(apps, FakeDispatcher()).execute(app.id, owner, UserRole.APPLICANT)
 
 
 async def test_submit_succeeds_when_required_present() -> None:
@@ -213,7 +228,9 @@ async def test_submit_succeeds_when_required_present() -> None:
                 storage_key=f"k/{kind}",
             )
         )
-    result = await SubmitApplication(apps).execute(app.id, owner, UserRole.APPLICANT)
+    result = await SubmitApplication(apps, FakeDispatcher()).execute(
+        app.id, owner, UserRole.APPLICANT
+    )
     assert result.status is ApplicationStatus.SUBMITTED
     assert result.submitted_at is not None
 

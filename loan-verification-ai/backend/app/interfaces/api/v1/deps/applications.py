@@ -7,6 +7,7 @@ from fastapi import Depends
 from app.application.ports.repositories.application_repository import ApplicationRepository
 from app.application.ports.repositories.artifact_repository import ArtifactRepository
 from app.application.ports.services.object_storage import ObjectStorage
+from app.application.ports.services.pipeline import PipelineDispatcher
 from app.application.use_cases.applications.create_application import CreateApplication
 from app.application.use_cases.applications.query_applications import (
     GetApplication,
@@ -23,6 +24,7 @@ from app.infrastructure.db.repositories.application_repository import (
 )
 from app.infrastructure.db.repositories.artifact_repository import SqlAlchemyArtifactRepository
 from app.infrastructure.storage.s3_storage import S3ObjectStorage
+from app.infrastructure.tasks.dispatcher import CeleryPipelineDispatcher
 from app.interfaces.api.v1.deps.auth import SessionDep
 
 # One S3 client per process (client construction is non-trivial and thread-safe).
@@ -61,8 +63,15 @@ def get_get_application(applications: AppRepoDep) -> GetApplication:
     return GetApplication(applications)
 
 
-def get_submit_application(applications: AppRepoDep) -> SubmitApplication:
-    return SubmitApplication(applications)
+def get_pipeline_dispatcher() -> PipelineDispatcher:
+    return CeleryPipelineDispatcher()
+
+
+def get_submit_application(
+    applications: AppRepoDep,
+    dispatcher: Annotated[PipelineDispatcher, Depends(get_pipeline_dispatcher)],
+) -> SubmitApplication:
+    return SubmitApplication(applications, dispatcher)
 
 
 def get_init_upload(

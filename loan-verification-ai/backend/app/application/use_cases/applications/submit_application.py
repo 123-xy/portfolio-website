@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from app.application.ports.repositories.application_repository import ApplicationRepository
+from app.application.ports.services.pipeline import PipelineDispatcher
 from app.application.use_cases.applications.access import authorize_owner
 from app.domain.entities.application import Application
 from app.domain.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
@@ -17,14 +18,13 @@ _PRESENT_STATUSES = {"uploaded", "ingested", "validated"}
 
 class SubmitApplication:
     """Transition a draft application to `submitted` once all required artifacts
-    are present, making it eligible for the AI verification pipeline.
+    are present, then enqueue the AI verification pipeline."""
 
-    The pipeline is enqueued here in Phase 9; for now the transition is the
-    contract the pipeline will hook onto.
-    """
-
-    def __init__(self, applications: ApplicationRepository) -> None:
+    def __init__(
+        self, applications: ApplicationRepository, dispatcher: PipelineDispatcher
+    ) -> None:
         self._applications = applications
+        self._dispatcher = dispatcher
 
     async def execute(
         self, application_id: uuid.UUID, requester_id: uuid.UUID, role: UserRole
@@ -51,5 +51,6 @@ class SubmitApplication:
         # Reflect the persisted transition on the returned entity.
         app.status = ApplicationStatus.SUBMITTED
         app.submitted_at = datetime.now(UTC)
-        # Phase 9 enqueues the verification pipeline for app.id here.
+        # Enqueue the AI verification pipeline (runs asynchronously on a worker).
+        self._dispatcher.dispatch(app.id)
         return app
