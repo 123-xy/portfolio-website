@@ -7,11 +7,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.application.use_cases.verification.run_pipeline import RunVerificationPipeline
 from app.core.config import get_settings
+from app.infrastructure.ai.risk_scoring import AiServicesRiskScoringService
 from app.infrastructure.ai.stage_runner import DeterministicStageRunner
 from app.infrastructure.db.repositories.application_repository import (
     SqlAlchemyApplicationRepository,
 )
 from app.infrastructure.db.repositories.artifact_repository import SqlAlchemyArtifactRepository
+from app.infrastructure.db.repositories.risk_engine_config_repository import (
+    SqlAlchemyRiskEngineConfigRepository,
+)
+from app.infrastructure.db.repositories.risk_score_repository import SqlAlchemyRiskScoreRepository
 from app.infrastructure.db.repositories.verification_result_repository import (
     SqlAlchemyVerificationResultRepository,
 )
@@ -33,6 +38,9 @@ async def _run(application_id: uuid.UUID) -> None:
                 DeterministicStageRunner(
                     S3ObjectStorage(settings), SqlAlchemyArtifactRepository(session)
                 ),
+                SqlAlchemyRiskEngineConfigRepository(session),
+                SqlAlchemyRiskScoreRepository(session),
+                AiServicesRiskScoringService(),
             )
             await use_case.execute(application_id)
             await session.commit()

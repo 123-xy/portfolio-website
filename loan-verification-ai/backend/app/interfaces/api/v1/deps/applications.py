@@ -6,6 +6,7 @@ from fastapi import Depends
 
 from app.application.ports.repositories.application_repository import ApplicationRepository
 from app.application.ports.repositories.artifact_repository import ArtifactRepository
+from app.application.ports.repositories.risk_score_repository import RiskScoreRepository
 from app.application.ports.services.object_storage import ObjectStorage
 from app.application.ports.services.pipeline import PipelineDispatcher
 from app.application.use_cases.applications.create_application import CreateApplication
@@ -23,6 +24,7 @@ from app.infrastructure.db.repositories.application_repository import (
     SqlAlchemyApplicationRepository,
 )
 from app.infrastructure.db.repositories.artifact_repository import SqlAlchemyArtifactRepository
+from app.infrastructure.db.repositories.risk_score_repository import SqlAlchemyRiskScoreRepository
 from app.infrastructure.storage.s3_storage import S3ObjectStorage
 from app.infrastructure.tasks.dispatcher import CeleryPipelineDispatcher
 from app.interfaces.api.v1.deps.auth import SessionDep
@@ -46,8 +48,13 @@ def get_artifact_repository(session: SessionDep) -> ArtifactRepository:
     return SqlAlchemyArtifactRepository(session)
 
 
+def get_risk_score_repository(session: SessionDep) -> RiskScoreRepository:
+    return SqlAlchemyRiskScoreRepository(session)
+
+
 AppRepoDep = Annotated[ApplicationRepository, Depends(get_application_repository)]
 ArtifactRepoDep = Annotated[ArtifactRepository, Depends(get_artifact_repository)]
+RiskScoreRepoDep = Annotated[RiskScoreRepository, Depends(get_risk_score_repository)]
 StorageDep = Annotated[ObjectStorage, Depends(get_object_storage)]
 
 
@@ -55,12 +62,16 @@ def get_create_application(applications: AppRepoDep) -> CreateApplication:
     return CreateApplication(applications)
 
 
-def get_list_applications(applications: AppRepoDep) -> ListApplications:
-    return ListApplications(applications)
+def get_list_applications(
+    applications: AppRepoDep, risk_scores: RiskScoreRepoDep
+) -> ListApplications:
+    return ListApplications(applications, risk_scores)
 
 
-def get_get_application(applications: AppRepoDep) -> GetApplication:
-    return GetApplication(applications)
+def get_get_application(
+    applications: AppRepoDep, risk_scores: RiskScoreRepoDep
+) -> GetApplication:
+    return GetApplication(applications, risk_scores)
 
 
 def get_pipeline_dispatcher() -> PipelineDispatcher:

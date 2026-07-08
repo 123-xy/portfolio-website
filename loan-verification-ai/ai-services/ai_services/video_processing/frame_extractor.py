@@ -7,7 +7,6 @@ bytes without decoding (works on any input). The real provider (enabled via the
 
 from __future__ import annotations
 
-from ai_services._determinism import stable_int
 from ai_services.contracts import Frame
 
 

@@ -4,6 +4,9 @@ import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 
+from app.application.dto.risk import RiskScoreDto
+from app.domain.entities.application import Application
+
 
 @dataclass(frozen=True)
 class CreateApplicationCommand:
@@ -36,3 +39,13 @@ class UploadTicket:
 class ConfirmUploadCommand:
     application_id: uuid.UUID
     artifact_id: uuid.UUID
+
+
+@dataclass(frozen=True)
+class ApplicationWithRisk:
+    """An application paired with its current risk score, if one has been
+    computed. Kept as a wrapper rather than mutating the Application entity so
+    the entity itself stays a pure reflection of the applications table."""
+
+    application: Application
+    risk: RiskScoreDto | None

@@ -20,6 +20,9 @@ export const ARTIFACT_KINDS = [
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
+export const RISK_BANDS = ["low", "medium", "high"] as const;
+export type RiskBandValue = (typeof RISK_BANDS)[number];
+
 /** Kinds required before an application can be submitted (mirrors the backend). */
 export const REQUIRED_KINDS: ArtifactKind[] = [
   "applicant_photo",
@@ -48,6 +51,15 @@ export const artifactResponseSchema = z.object({
   original_filename: z.string().nullable(),
 });
 
+export const riskScoreSchema = z.object({
+  score: z.coerce.number(),
+  band: z.enum(RISK_BANDS),
+  recommendation: z.string(),
+  confidence: z.coerce.number(),
+  component_scores: z.record(z.string(), z.number()),
+  reasons: z.array(z.string()),
+});
+
 export const applicationSummarySchema = z.object({
   id: z.string(),
   reference_no: z.string(),
@@ -56,6 +68,7 @@ export const applicationSummarySchema = z.object({
   co_applicant_name: z.string().nullable(),
   submitted_at: z.string().nullable(),
   created_at: z.string().nullable(),
+  risk_band: z.enum(RISK_BANDS).nullable().optional(),
 });
 
 export const applicationDetailSchema = z.object({
@@ -74,6 +87,7 @@ export const applicationDetailSchema = z.object({
     })
     .nullable(),
   artifacts: z.array(artifactResponseSchema),
+  risk: riskScoreSchema.nullable().optional(),
 });
 
 export const initUploadResponseSchema = z.object({
@@ -86,3 +100,4 @@ export const initUploadResponseSchema = z.object({
 export type ApplicationDetail = z.infer<typeof applicationDetailSchema>;
 export type ApplicationSummaryDto = z.infer<typeof applicationSummarySchema>;
 export type ArtifactDto = z.infer<typeof artifactResponseSchema>;
+export type RiskScoreDto = z.infer<typeof riskScoreSchema>;

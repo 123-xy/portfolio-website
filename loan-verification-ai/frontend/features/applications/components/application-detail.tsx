@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2, Send } from "lucide-react";
 import { useApplication, useSubmitApplication } from "@/features/applications/hooks/use-applications";
 import { UploadRow } from "@/features/applications/components/upload-row";
+import { RiskResultCard } from "@/features/applications/components/risk-result-card";
 import { STATUS_META } from "@/features/applications/domain/status";
 import { REQUIRED_KINDS, type ArtifactKind } from "@/features/applications/domain/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -108,11 +109,13 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
             {allRequiredUploaded ? "Submit for verification" : "Upload all artifacts to submit"}
           </Button>
         </div>
+      ) : app.risk ? (
+        <RiskResultCard risk={app.risk} />
       ) : (
         <Card>
           <CardContent className="p-5 text-sm text-muted-foreground">
-            This application has been submitted. The AI verification result and risk
-            breakdown appear here once the pipeline completes (Phases 9–10).
+            The AI verification pipeline is still processing. The risk breakdown
+            appears here once it completes — this usually takes a few minutes.
           </CardContent>
         </Card>
       )}

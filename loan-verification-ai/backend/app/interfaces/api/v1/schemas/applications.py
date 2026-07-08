@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.domain.value_objects.enums import ApplicationStatus, ArtifactKind
+from app.domain.value_objects.enums import ApplicationStatus, ArtifactKind, RiskBand
 
 
 class CoApplicantInput(BaseModel):
@@ -39,6 +39,15 @@ class ArtifactResponse(BaseModel):
     original_filename: str | None
 
 
+class RiskScoreResponse(BaseModel):
+    score: Decimal
+    band: RiskBand
+    recommendation: str
+    confidence: Decimal
+    component_scores: dict[str, float]
+    reasons: list[str]
+
+
 class ApplicationResponse(BaseModel):
     id: uuid.UUID
     reference_no: str
@@ -49,6 +58,7 @@ class ApplicationResponse(BaseModel):
     created_at: datetime | None
     co_applicant: CoApplicantResponse | None
     artifacts: list[ArtifactResponse]
+    risk: RiskScoreResponse | None = None
 
 
 class ApplicationSummaryResponse(BaseModel):
@@ -61,6 +71,7 @@ class ApplicationSummaryResponse(BaseModel):
     co_applicant_name: str | None
     submitted_at: datetime | None
     created_at: datetime | None
+    risk_band: RiskBand | None = None
 
 
 class InitUploadRequest(BaseModel):

@@ -12,6 +12,7 @@ from app.application.dto.applications import (
 )
 from app.application.ports.repositories.application_repository import ApplicationRepository
 from app.application.ports.repositories.artifact_repository import ArtifactRepository
+from app.application.ports.repositories.risk_score_repository import RiskScoreRepository
 from app.application.ports.services.object_storage import ObjectStat, ObjectStorage
 from app.application.ports.services.pipeline import PipelineDispatcher
 from app.application.use_cases.applications.create_application import CreateApplication
@@ -127,6 +128,17 @@ class FakeDispatcher(PipelineDispatcher):
         self.dispatched.append(application_id)
 
 
+class FakeRiskScoreRepo(RiskScoreRepository):
+    async def record(self, *, application_id, assessment, weights, config_version) -> None:
+        pass
+
+    async def get_current(self, application_id):
+        return None
+
+    async def get_current_batch(self, application_ids):
+        return {}
+
+
 async def _new_draft(apps: FakeAppRepo, owner: uuid.UUID) -> Application:
     return await CreateApplication(apps).execute(
         CreateApplicationCommand(
@@ -236,11 +248,12 @@ async def test_submit_succeeds_when_required_present() -> None:
 
 
 async def test_get_application_hides_other_applicants() -> None:
-    apps = FakeAppRepo()
+    apps, risk_scores = FakeAppRepo(), FakeRiskScoreRepo()
     owner, stranger = uuid.uuid4(), uuid.uuid4()
     app = await _new_draft(apps, owner)
     with pytest.raises(NotFoundError):
-        await GetApplication(apps).execute(app.id, stranger, UserRole.APPLICANT)
+        await GetApplication(apps, risk_scores).execute(app.id, stranger, UserRole.APPLICANT)
     # An officer, by contrast, may view it.
-    seen = await GetApplication(apps).execute(app.id, stranger, UserRole.OFFICER)
-    assert seen.id == app.id
+    seen = await GetApplication(apps, risk_scores).execute(app.id, stranger, UserRole.OFFICER)
+    assert seen.application.id == app.id
+    assert seen.risk is None

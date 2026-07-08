@@ -5,8 +5,13 @@ from decimal import Decimal
 
 from ai_services import build_consent_detector, build_face_matcher, build_intent_analyzer
 
+from app.application.dto.risk import RiskAssessment, RiskEngineConfigDto
 from app.application.dto.verification import PipelineContext, StageOutcome
 from app.application.ports.repositories.application_repository import ApplicationRepository
+from app.application.ports.repositories.risk_engine_config_repository import (
+    RiskEngineConfigRepository,
+)
+from app.application.ports.repositories.risk_score_repository import RiskScoreRepository
 from app.application.ports.repositories.verification_result_repository import (
     VerificationResultRepository,
 )
@@ -17,7 +22,9 @@ from app.application.use_cases.verification.run_pipeline import (
     RunVerificationPipeline,
 )
 from app.domain.entities.application import Application, Artifact
+from app.domain.exceptions import NotFoundError
 from app.domain.value_objects.enums import ApplicationStatus, StageStatus, VerificationStage
+from app.infrastructure.ai.risk_scoring import AiServicesRiskScoringService
 from app.infrastructure.ai.stage_runner import DeterministicStageRunner
 
 
@@ -86,6 +93,34 @@ class RecordingResults(VerificationResultRepository):
         return {}
 
 
+class FakeRiskConfig(RiskEngineConfigRepository):
+    def __init__(self, *, present: bool = True) -> None:
+        self._present = present
+
+    async def get_active(self) -> RiskEngineConfigDto:
+        if not self._present:
+            raise NotFoundError("No active risk engine configuration.")
+        return RiskEngineConfigDto(
+            version=1,
+            weights={"face_match": 0.40, "speech": 0.20, "intent": 0.20, "fraud": 0.20},
+            thresholds={"low_max": 0.33, "medium_max": 0.66},
+        )
+
+
+class RecordingRiskScores(RiskScoreRepository):
+    def __init__(self) -> None:
+        self.recorded: list[tuple[uuid.UUID, RiskAssessment, dict[str, float], int]] = []
+
+    async def record(self, *, application_id, assessment, weights, config_version) -> None:
+        self.recorded.append((application_id, assessment, weights, config_version))
+
+    async def get_current(self, application_id):  # pragma: no cover
+        return None
+
+    async def get_current_batch(self, application_ids):  # pragma: no cover
+        return {}
+
+
 class AllPassRunner(StageRunner):
     async def run(self, stage, context) -> StageOutcome:
         return StageOutcome(status=StageStatus.COMPLETED)
@@ -111,28 +146,66 @@ def _app() -> Application:
     )
 
 
-async def test_pipeline_runs_all_stages_and_marks_pending_review() -> None:
+async def test_pipeline_runs_all_stages_scores_risk_and_marks_pending_review() -> None:
     app = _app()
-    apps, results = FakeApps(app), RecordingResults()
-    await RunVerificationPipeline(apps, results, AllPassRunner()).execute(app.id)
+    apps, results, risk_scores = FakeApps(app), RecordingResults(), RecordingRiskScores()
+    await RunVerificationPipeline(
+        apps,
+        results,
+        AllPassRunner(),
+        FakeRiskConfig(),
+        risk_scores,
+        AiServicesRiskScoringService(),
+    ).execute(app.id)
 
-    assert len(results.recorded) == len(PIPELINE_STAGES)
+    # The 10 perception/analysis stages plus the risk_scoring step, each recorded.
+    assert len(results.recorded) == len(PIPELINE_STAGES) + 1
+    assert results.recorded[-1] == (VerificationStage.RISK_SCORING, StageStatus.COMPLETED)
     assert app.status is ApplicationStatus.PENDING_REVIEW
-    # Went through processing first.
     assert ApplicationStatus.PROCESSING in apps.status_changes
+    # A risk score was actually persisted, with a valid band/recommendation.
+    assert len(risk_scores.recorded) == 1
+    _, assessment, weights, config_version = risk_scores.recorded[0]
+    assert assessment.band in {"low", "medium", "high"}
+    assert config_version == 1
+    assert weights["face_match"] == 0.40
 
 
 async def test_pipeline_routes_to_needs_attention_on_stage_failure() -> None:
     app = _app()
-    apps, results = FakeApps(app), RecordingResults()
+    apps, results, risk_scores = FakeApps(app), RecordingResults(), RecordingRiskScores()
     await RunVerificationPipeline(
-        apps, results, FailAtRunner(VerificationStage.FACE_MATCH)
+        apps,
+        results,
+        FailAtRunner(VerificationStage.FACE_MATCH),
+        FakeRiskConfig(),
+        risk_scores,
+        AiServicesRiskScoringService(),
     ).execute(app.id)
 
     assert app.status is ApplicationStatus.NEEDS_ATTENTION
-    # Stopped at the failing stage — later stages were not recorded.
+    # Stopped at the failing stage — later stages (including risk scoring) were not recorded.
     assert results.recorded[-1] == (VerificationStage.FACE_MATCH, StageStatus.FAILED)
     assert VerificationStage.TRANSCRIPTION not in [s for s, _ in results.recorded]
+    assert VerificationStage.RISK_SCORING not in [s for s, _ in results.recorded]
+    assert risk_scores.recorded == []
+
+
+async def test_pipeline_routes_to_needs_attention_when_risk_config_missing() -> None:
+    app = _app()
+    apps, results, risk_scores = FakeApps(app), RecordingResults(), RecordingRiskScores()
+    await RunVerificationPipeline(
+        apps,
+        results,
+        AllPassRunner(),
+        FakeRiskConfig(present=False),
+        risk_scores,
+        AiServicesRiskScoringService(),
+    ).execute(app.id)
+
+    assert app.status is ApplicationStatus.NEEDS_ATTENTION
+    assert results.recorded[-1] == (VerificationStage.RISK_SCORING, StageStatus.FAILED)
+    assert risk_scores.recorded == []
 
 
 # --- deterministic stage runner end to end (no DB / no real storage) ---

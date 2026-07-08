@@ -6,10 +6,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from app.application.dto.applications import (
+    ApplicationWithRisk,
     ConfirmUploadCommand,
     CreateApplicationCommand,
     InitUploadCommand,
 )
+from app.application.dto.risk import RiskScoreDto
 from app.application.use_cases.applications.create_application import CreateApplication
 from app.application.use_cases.applications.query_applications import (
     GetApplication,
@@ -21,7 +23,7 @@ from app.application.use_cases.applications.upload_artifact import (
     InitArtifactUpload,
 )
 from app.domain.entities.application import Application, Artifact
-from app.domain.value_objects.enums import ArtifactKind
+from app.domain.value_objects.enums import ArtifactKind, RiskBand
 from app.interfaces.api.v1.deps.applications import (
     get_confirm_upload,
     get_create_application,
@@ -40,6 +42,7 @@ from app.interfaces.api.v1.schemas.applications import (
     CreateApplicationRequest,
     InitUploadRequest,
     InitUploadResponse,
+    RiskScoreResponse,
 )
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -56,7 +59,22 @@ def _artifact_response(artifact: Artifact) -> ArtifactResponse:
     )
 
 
-def _application_response(app: Application) -> ApplicationResponse:
+def _risk_response(risk: RiskScoreDto | None) -> RiskScoreResponse | None:
+    if risk is None:
+        return None
+    return RiskScoreResponse(
+        score=risk.score,
+        band=RiskBand(risk.band),
+        recommendation=risk.recommendation,
+        confidence=risk.confidence,
+        component_scores=risk.component_scores,
+        reasons=risk.reasons,
+    )
+
+
+def _application_response(
+    app: Application, risk: RiskScoreDto | None = None
+) -> ApplicationResponse:
     co = app.co_applicant
     return ApplicationResponse(
         id=app.id,
@@ -79,10 +97,16 @@ def _application_response(app: Application) -> ApplicationResponse:
         ),
         # Rejected (superseded) artifacts are hidden from the client view.
         artifacts=[_artifact_response(a) for a in app.artifacts if a.status != "rejected"],
+        risk=_risk_response(risk),
     )
 
 
-def _summary_response(app: Application) -> ApplicationSummaryResponse:
+def _detail_response(result: ApplicationWithRisk) -> ApplicationResponse:
+    return _application_response(result.application, result.risk)
+
+
+def _summary_response(result: ApplicationWithRisk) -> ApplicationSummaryResponse:
+    app = result.application
     return ApplicationSummaryResponse(
         id=app.id,
         reference_no=app.reference_no,
@@ -91,6 +115,7 @@ def _summary_response(app: Application) -> ApplicationSummaryResponse:
         co_applicant_name=app.co_applicant.full_name if app.co_applicant else None,
         submitted_at=app.submitted_at,
         created_at=app.created_at,
+        risk_band=RiskBand(result.risk.band) if result.risk else None,
     )
 
 
@@ -124,8 +149,8 @@ async def list_applications(
     current_user: CurrentUser,
     use_case: Annotated[ListApplications, Depends(get_list_applications)],
 ) -> list[ApplicationSummaryResponse]:
-    apps = await use_case.execute(current_user.id, current_user.role)
-    return [_summary_response(a) for a in apps]
+    results = await use_case.execute(current_user.id, current_user.role)
+    return [_summary_response(r) for r in results]
 
 
 @router.get("/{application_id}", response_model=ApplicationResponse, summary="Application detail")
@@ -134,10 +159,8 @@ async def get_application(
     current_user: CurrentUser,
     use_case: Annotated[GetApplication, Depends(get_get_application)],
 ) -> ApplicationResponse:
-    app = await use_case.execute(
-        application_id, current_user.id, current_user.role
-    )
-    return _application_response(app)
+    result = await use_case.execute(application_id, current_user.id, current_user.role)
+    return _detail_response(result)
 
 
 @router.post(
