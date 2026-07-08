@@ -24,3 +24,11 @@ def authorize_owner(app: Application, requester_id: uuid.UUID, role: UserRole) -
     if app.applicant_id == requester_id:
         return
     raise NotFoundError("Application not found.")
+
+
+def authorize_staff(role: UserRole) -> None:
+    """Officer-review evidence (transcript, fraud/intent detail, audit trail)
+    is staff-only — narrower than authorize_view, which also lets an
+    applicant see their own application."""
+    if role not in _STAFF_ROLES:
+        raise NotFoundError("Application not found.")

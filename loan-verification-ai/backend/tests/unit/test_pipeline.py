@@ -74,7 +74,9 @@ class FakeApps(ApplicationRepository):
     async def list_for_review(self):  # pragma: no cover
         return []
 
-    async def set_status(self, application_id, status, *, mark_submitted=False) -> None:
+    async def set_status(
+        self, application_id, status, *, mark_submitted=False, mark_decided=False
+    ) -> None:
         self._app.status = status
         self.status_changes.append(status)
 

@@ -50,4 +50,5 @@ class ApplicationRepository(ABC):
         status: ApplicationStatus,
         *,
         mark_submitted: bool = False,
+        mark_decided: bool = False,
     ) -> None: ...

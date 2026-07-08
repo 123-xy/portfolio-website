@@ -7,10 +7,9 @@ export const metadata: Metadata = { title: "Verification queue" };
 
 export default function QueuePage() {
   // For officers, the applications list endpoint returns the review queue.
-  // Decision actions land in Phase 11.
   return (
     <AppShell title="Verification queue" nav="officer" action={<ThemeToggle />}>
-      <ApplicationList showCreate={false} />
+      <ApplicationList showCreate={false} hrefBase="/review" />
     </AppShell>
   );
 }

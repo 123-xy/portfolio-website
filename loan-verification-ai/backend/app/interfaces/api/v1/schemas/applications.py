@@ -55,6 +55,7 @@ class ApplicationResponse(BaseModel):
     loan_purpose: str | None
     status: ApplicationStatus
     submitted_at: datetime | None
+    decided_at: datetime | None
     created_at: datetime | None
     co_applicant: CoApplicantResponse | None
     artifacts: list[ArtifactResponse]

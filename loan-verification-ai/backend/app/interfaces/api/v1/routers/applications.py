@@ -83,6 +83,7 @@ def _application_response(
         loan_purpose=app.loan_purpose,
         status=app.status,
         submitted_at=app.submitted_at,
+        decided_at=app.decided_at,
         created_at=app.created_at,
         co_applicant=(
             CoApplicantResponse(

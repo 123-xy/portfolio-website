@@ -58,7 +58,9 @@ class FakeAppRepo(ApplicationRepository):
     async def list_for_review(self) -> list[Application]:
         return [a for a in self.apps.values() if a.status == ApplicationStatus.PENDING_REVIEW]
 
-    async def set_status(self, application_id, status, *, mark_submitted=False) -> None:
+    async def set_status(
+        self, application_id, status, *, mark_submitted=False, mark_decided=False
+    ) -> None:
         self.apps[application_id].status = status
 
 

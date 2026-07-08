@@ -12,9 +12,11 @@ interface ApplicationListProps {
   limit?: number;
   /** Show a create button in the empty state (applicants only). */
   showCreate?: boolean;
+  /** Route prefix each card links into (see ApplicationCard). */
+  hrefBase?: string;
 }
 
-export function ApplicationList({ limit, showCreate = true }: ApplicationListProps) {
+export function ApplicationList({ limit, showCreate = true, hrefBase }: ApplicationListProps) {
   const { data, isLoading, isError } = useApplications();
 
   if (isLoading) {
@@ -57,7 +59,7 @@ export function ApplicationList({ limit, showCreate = true }: ApplicationListPro
   return (
     <div className="space-y-3">
       {items.map((application) => (
-        <ApplicationCard key={application.id} application={application} />
+        <ApplicationCard key={application.id} application={application} hrefBase={hrefBase} />
       ))}
     </div>
   );

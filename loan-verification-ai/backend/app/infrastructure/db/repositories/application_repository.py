@@ -138,10 +138,13 @@ class SqlAlchemyApplicationRepository(ApplicationRepository):
         status: ApplicationStatus,
         *,
         mark_submitted: bool = False,
+        mark_decided: bool = False,
     ) -> None:
         values: dict[str, object] = {"status": status}
         if mark_submitted:
             values["submitted_at"] = datetime.now(UTC)
+        if mark_decided:
+            values["decided_at"] = datetime.now(UTC)
         await self._session.execute(
             update(AppModel).where(AppModel.id == application_id).values(**values)
         )
