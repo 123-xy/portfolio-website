@@ -28,6 +28,9 @@ venv/
 .coverage
 htmlcov/
 
+# --- Redis persistence snapshot (runtime artifact) ---
+*.rdb
+
 # --- Node / Next.js (frontend) ---
 node_modules/
 .next/
