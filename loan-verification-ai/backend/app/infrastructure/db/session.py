@@ -56,8 +56,14 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def dispose_engine() -> None:
-    """Dispose the engine's connection pool on shutdown."""
-    global _engine
+    """Dispose the engine's connection pool on shutdown.
+
+    Also drops the cached sessionmaker: it's bound to this engine, so leaving
+    it cached would hand out sessions against a disposed connection pool if
+    the process ever starts a new engine afterward (e.g. a test harness that
+    creates a fresh app per test, each on its own event loop)."""
+    global _engine, _sessionmaker
     if _engine is not None:
         await _engine.dispose()
         _engine = None
+    _sessionmaker = None

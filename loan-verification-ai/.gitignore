@@ -29,6 +29,11 @@ dist/
 npm-debug.log*
 yarn-error.log*
 
+# --- Playwright (frontend E2E) ---
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
 # --- AI model weights (large, fetched at build/runtime) ---
 *.onnx
 *.pt

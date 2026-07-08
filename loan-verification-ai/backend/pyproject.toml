@@ -26,6 +26,7 @@ dependencies = [
 dev = [
     "pytest>=8.3.4",
     "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
     "httpx>=0.28.1",
     "ruff>=0.8.4",
     "mypy>=1.14.0",
@@ -56,9 +57,26 @@ select = ["E", "F", "I", "B", "UP", "N", "ASYNC"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: exercises the real API against a live Postgres/Redis/S3 stack (see tests/integration/conftest.py); requires `verify_test` DB and moto running.",
+]
 filterwarnings = [
     # passlib imports the stdlib `crypt` module, deprecated in 3.11; not our code.
     "ignore:'crypt' is deprecated:DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+# Baseline measured with the full suite (unit + integration), branch
+# coverage on, at ~90%; set a little below that so the gate catches real
+# regressions without being so tight that one untested branch fails CI.
+fail_under = 85
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
 ]
 
 [tool.mypy]
