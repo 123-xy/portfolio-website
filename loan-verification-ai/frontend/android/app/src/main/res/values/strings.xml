@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VerifyCo</string>
+    <string name="title_activity_main">VerifyCo</string>
+    <string name="package_name">com.verifyco.app</string>
+    <string name="custom_url_scheme">com.verifyco.app</string>
+</resources>
